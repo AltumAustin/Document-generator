@@ -1,0 +1,364 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  EDITOR
+  VIEWER
+}
+
+enum ResponseStatus {
+  IN_PROGRESS
+  COMPLETED
+  ARCHIVED
+}
+
+enum SignatureStatus {
+  PENDING
+  VIEWED
+  SIGNED
+  DECLINED
+  EXPIRED
+}
+
+enum DocumentFormat {
+  DOCX
+  PDF
+  HTML
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  passwordHash  String?
+  image         String?
+  emailVerified DateTime?
+  role          Role      @default(EDITOR)
+  workspaceId   String?
+  workspace     Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  auditLogs     AuditLog[]
+  templates     Template[]
+  questionnaires Questionnaire[]
+
+  @@index([workspaceId])
+  @@index([email])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Workspace {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  logo      String?
+  brandColor String? @default("#2563eb")
+  plan      String   @default("free")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users          User[]
+  templates      Template[]
+  questionnaires Questionnaire[]
+  apiKeys        ApiKey[]
+  webhookEndpoints WebhookEndpoint[]
+  auditLogs      AuditLog[]
+  invitations    TeamInvitation[]
+
+  @@index([slug])
+}
+
+model TeamInvitation {
+  id          String   @id @default(cuid())
+  email       String
+  role        Role     @default(EDITOR)
+  token       String   @unique
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([workspaceId])
+  @@index([token])
+}
+
+model Template {
+  id          String   @id @default(cuid())
+  name        String
+  description String?  @db.Text
+  category    String   @default("General")
+  fileUrl     String?
+  fileName    String?
+  variables   Json     @default("[]")
+  version     Int      @default(1)
+  isActive    Boolean  @default(true)
+  workspaceId String
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace      Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy      User              @relation(fields: [createdById], references: [id])
+  versions       TemplateVersion[]
+  questionnaires Questionnaire[]
+  generatedDocs  GeneratedDocument[]
+
+  @@index([workspaceId])
+  @@index([category])
+  @@index([createdById])
+}
+
+model TemplateVersion {
+  id         String   @id @default(cuid())
+  templateId String
+  version    Int
+  fileUrl    String
+  fileName   String?
+  variables  Json     @default("[]")
+  changelog  String?  @db.Text
+  createdAt  DateTime @default(now())
+
+  template Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([templateId])
+  @@unique([templateId, version])
+}
+
+model Questionnaire {
+  id          String   @id @default(cuid())
+  title       String
+  description String?  @db.Text
+  templateId  String?
+  settings    Json     @default("{}")
+  isActive    Boolean  @default(true)
+  workspaceId String
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  template    Template?           @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  workspace   Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy   User                @relation(fields: [createdById], references: [id])
+  fields      QuestionnaireField[]
+  conditionalLogic ConditionalLogic[]
+  sharedLinks SharedLink[]
+  responses   Response[]
+
+  @@index([workspaceId])
+  @@index([templateId])
+  @@index([createdById])
+}
+
+model QuestionnaireField {
+  id              String  @id @default(cuid())
+  questionnaireId String
+  type            String
+  label           String
+  variable        String
+  description     String? @db.Text
+  placeholder     String?
+  options         Json    @default("[]")
+  validation      Json    @default("{}")
+  defaultValue    String?
+  section         String? @default("default")
+  order           Int     @default(0)
+  isRequired      Boolean @default(false)
+  config          Json    @default("{}")
+
+  questionnaire   Questionnaire    @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+  conditionalLogic ConditionalLogic[]
+
+  @@index([questionnaireId])
+  @@index([variable])
+}
+
+model ConditionalLogic {
+  id              String @id @default(cuid())
+  questionnaireId String
+  fieldId         String?
+  conditions      Json
+  action          String
+  targetFieldId   String?
+
+  questionnaire Questionnaire      @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+  field         QuestionnaireField? @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@index([questionnaireId])
+  @@index([fieldId])
+}
+
+model SharedLink {
+  id              String    @id @default(cuid())
+  questionnaireId String
+  slug            String    @unique
+  expiresAt       DateTime?
+  isActive        Boolean   @default(true)
+  branding        Json      @default("{}")
+  maxResponses    Int?
+  responseCount   Int       @default(0)
+  createdAt       DateTime  @default(now())
+
+  questionnaire Questionnaire @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+
+  @@index([slug])
+  @@index([questionnaireId])
+}
+
+model Response {
+  id              String         @id @default(cuid())
+  questionnaireId String
+  respondentEmail String?
+  respondentName  String?
+  answers         Json           @default("{}")
+  status          ResponseStatus @default(IN_PROGRESS)
+  completedAt     DateTime?
+  metadata        Json           @default("{}")
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  questionnaire    Questionnaire     @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+  generatedDocs    GeneratedDocument[]
+
+  @@index([questionnaireId])
+  @@index([status])
+  @@index([respondentEmail])
+}
+
+model GeneratedDocument {
+  id         String         @id @default(cuid())
+  responseId String
+  templateId String
+  fileUrl    String
+  fileName   String
+  format     DocumentFormat
+  fileSize   Int?
+  generatedAt DateTime     @default(now())
+
+  response          Response           @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  template          Template           @relation(fields: [templateId], references: [id])
+  signatureRequests SignatureRequest[]
+
+  @@index([responseId])
+  @@index([templateId])
+}
+
+model SignatureRequest {
+  id           String          @id @default(cuid())
+  documentId   String
+  signerEmail  String
+  signerName   String?
+  token        String          @unique
+  status       SignatureStatus @default(PENDING)
+  signedAt     DateTime?
+  ipAddress    String?
+  signatureUrl String?
+  message      String?         @db.Text
+  expiresAt    DateTime?
+  createdAt    DateTime        @default(now())
+
+  document GeneratedDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@index([token])
+  @@index([signerEmail])
+}
+
+model ApiKey {
+  id          String   @id @default(cuid())
+  workspaceId String
+  key         String   @unique
+  name        String
+  permissions Json     @default("[]")
+  lastUsedAt  DateTime?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([key])
+}
+
+model WebhookEndpoint {
+  id          String   @id @default(cuid())
+  workspaceId String
+  url         String
+  events      Json     @default("[]")
+  secret      String
+  isActive    Boolean  @default(true)
+  lastFiredAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  userId       String?
+  action       String
+  resourceType String
+  resourceId   String?
+  metadata     Json     @default("{}")
+  ipAddress    String?
+  createdAt    DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId])
+  @@index([userId])
+  @@index([resourceType, resourceId])
+  @@index([createdAt])
+}
