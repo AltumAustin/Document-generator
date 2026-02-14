@@ -14,33 +14,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
   FileText,
-  Plus,
   MoreVertical,
   Pencil,
   Trash2,
   Search,
-  Upload,
   Copy,
 } from "lucide-react"
+import { CreateTemplateDialog } from "@/components/create-template-dialog"
 import { formatDate } from "@/lib/utils"
 
 interface TemplatesPageProps {
@@ -90,74 +71,7 @@ export default async function TemplatesPage({ searchParams }: TemplatesPageProps
             Manage your document templates
           </p>
         </div>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Create Template
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create New Template</DialogTitle>
-              <DialogDescription>
-                Upload a .docx file and configure your document template.
-              </DialogDescription>
-            </DialogHeader>
-            <form action="/api/templates" method="POST" encType="multipart/form-data">
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Template Name</Label>
-                  <Input id="name" name="name" placeholder="e.g. Employment Contract" required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea
-                    id="description"
-                    name="description"
-                    placeholder="Describe what this template is used for..."
-                    rows={3}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="category">Category</Label>
-                  <Select name="category" defaultValue="General">
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="General">General</SelectItem>
-                      <SelectItem value="Legal">Legal</SelectItem>
-                      <SelectItem value="HR">HR</SelectItem>
-                      <SelectItem value="Finance">Finance</SelectItem>
-                      <SelectItem value="Sales">Sales</SelectItem>
-                      <SelectItem value="Marketing">Marketing</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="file">Template File (.docx)</Label>
-                  <div className="border-2 border-dashed rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
-                    <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                    <p className="text-sm text-muted-foreground mb-1">
-                      Drag and drop your .docx file here, or click to browse
-                    </p>
-                    <Input
-                      id="file"
-                      name="file"
-                      type="file"
-                      accept=".docx"
-                      className="max-w-xs mx-auto"
-                    />
-                  </div>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button type="submit">Create Template</Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <CreateTemplateDialog />
       </div>
 
       {/* Search and filter bar */}
@@ -201,27 +115,7 @@ export default async function TemplatesPage({ searchParams }: TemplatesPageProps
                 ? `No templates match "${search}". Try a different search term.`
                 : "Create your first template to start generating documents from questionnaire responses."}
             </p>
-            {!search && (
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Create Template
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Create New Template</DialogTitle>
-                    <DialogDescription>
-                      Upload a .docx file and configure your document template.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="py-4 text-center text-sm text-muted-foreground">
-                    Use the main Create Template button to get started.
-                  </div>
-                </DialogContent>
-              </Dialog>
-            )}
+            {!search && <CreateTemplateDialog />}
           </CardContent>
         </Card>
       ) : (
