@@ -34,8 +34,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# prisma
-/prisma/migrations/
+# prisma (migrations are committed for reproducible deployments)
 
 # uploads
 /uploads
