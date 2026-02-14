@@ -58,6 +58,13 @@ export async function POST(req: NextRequest) {
     if (error instanceof Error && error.name === "ZodError") {
       return NextResponse.json({ error: "Invalid input data" }, { status: 400 })
     }
+    const message = error instanceof Error ? error.message : ""
+    if (message.includes("Can't reach database") || message.includes("connect")) {
+      return NextResponse.json(
+        { error: "Database is not configured. Please set DATABASE_URL in your environment variables." },
+        { status: 503 }
+      )
+    }
     return NextResponse.json({ error: "Registration failed" }, { status: 500 })
   }
 }
